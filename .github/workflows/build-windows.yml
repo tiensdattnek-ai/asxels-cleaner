@@ -1,0 +1,33 @@
+name: Build Windows EXE
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install packager
+        run: python -m pip install -r requirements.txt
+      - name: Build one-file application
+        shell: pwsh
+        run: |
+          python -m PyInstaller --noconfirm --clean --windowed --onefile --name AsxelsCleaner --version-file version_info.txt --add-data "LICENSE;." main.py
+      - name: Upload EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: AsxelsCleaner-Windows
+          path: dist/AsxelsCleaner.exe
+          if-no-files-found: error
