@@ -1,3 +1,0 @@
-# Không có dependency runtime: chỉ dùng Python standard library.
-# PyInstaller chỉ cần khi đóng gói EXE trên Windows.
-pyinstaller>=6.10,<7

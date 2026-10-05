@@ -1,66 +1,84 @@
-# Asxels Cleaner
+# Asxels Cleaner — Native C++ Engine
 
-> Trình dọn dẹp cache Windows có giao diện desktop hiện đại, **an toàn theo phạm vi** và có tính năng yêu cầu Windows trim bộ nhớ cho các tiến trình người dùng.
+A Windows desktop cleaner built as a **native C++20 engine** with a deliberately thin EXE loader. It is designed around one principle: clean known disposable data without becoming a dangerous “delete everything” tool.
 
-![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-4E8CFF?style=flat-square) ![Python](https://img.shields.io/badge/Python-3.10%2B-3DDBC0?style=flat-square) ![License](https://img.shields.io/badge/license-MIT-9CADCB?style=flat-square)
+[![Native build](https://img.shields.io/badge/engine-C%2B%2B20-4E8CFF?style=flat-square)](CMakeLists.txt)
+[![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-3DDBC0?style=flat-square)](#requirements)
+[![License](https://img.shields.io/badge/license-MIT-9CADCB?style=flat-square)](LICENSE)
 
-## Điểm nổi bật
+## Runtime architecture
 
-- **Xem trước trước khi xóa:** quét dung lượng và số lượng mục trước khi hiện hộp xác nhận.
-- **Không dọn kiểu “quét toàn ổ”:** chỉ dùng các đường dẫn cache/tạm đã định nghĩa; không đụng đến `Documents`, `Downloads`, `Desktop`, ảnh, dự án, Registry hay startup.
-- **Chống xóa vượt phạm vi:** symbolic link/junction được xóa như một liên kết, không đi theo để xóa thư mục mà nó trỏ đến.
-- **Tôn trọng tệp đang dùng:** không cố ép xóa file bị khóa/hệ thống bảo vệ; hiển thị số mục đã bỏ qua.
-- **Tối ưu bộ nhớ có trách nhiệm:** gửi yêu cầu `EmptyWorkingSet` của Windows đến các tiến trình người dùng có quyền truy cập. Ứng dụng **không kết thúc process** và không tuyên bố tạo thêm RAM vật lý.
-- **Chạy nền mượt:** việc quét, dọn và tối ưu bộ nhớ chạy ở luồng riêng để giao diện không bị treo.
-- **Nhật ký cục bộ:** `%LOCALAPPDATA%\AsxelsCleaner\logs\activity.log`.
-- **Không dependency runtime:** chương trình dùng Python standard library; chỉ cài PyInstaller khi đóng gói.
+```text
+AsxelsCleaner.exe     Tiny native bootstrapper / loader only
+        │  LoadLibrary (absolute sibling path)
+        ▼
+AsxelsEngine.dll      Native C++20 engine
+        ├─ custom Win32 / GDI desktop UI
+        ├─ fixed-scope cache discovery and scanning
+        ├─ safe recursive cleanup engine
+        ├─ process working-set optimization
+        ├─ local activity logs
+        └─ background workers + UI event bridge
+```
 
-## Các khu vực dọn dẹp
+The launcher finds `AsxelsEngine.dll` in **its own folder** and invokes the single exported engine entry point. This means the EXE stays thin; all functionality and logic are executed by C++ in the engine DLL. Distribute the two files together, preferably through the supplied ZIP.
 
-| Hạng mục | Mặc định | Phạm vi |
+## Features
+
+- **Native C++20 only:** no Python runtime, no PyInstaller, no Electron, and no third-party runtime dependency.
+- **Premium dark Windows UI:** custom-rendered native interface, high-DPI aware, responsive background workers, memory meter, keyboard shortcuts (`F5` preview, `Enter` clean, `Esc` close while idle).
+- **Preview before delete:** scanning runs immediately before confirmation, so the shown amount is current.
+- **Transparent reporting:** actual removed bytes/count are recorded only when a deletion succeeds; locked/protected items are reported as skipped.
+- **Safe memory action:** calls Windows `EmptyWorkingSet` on accessible user processes while excluding core Windows processes. It does not kill apps or claim to create extra physical RAM.
+- **Local logs:** `%LOCALAPPDATA%\AsxelsCleaner\logs\activity.log`.
+- **GitHub Actions:** native x64 compilation and ZIP artifact on every push to `main`, tag `v*`, or manual dispatch.
+
+## Cleanup scope
+
+| Area | Default | Exact intent |
 |---|:---:|---|
-| Tệp tạm người dùng | ✓ | `%TEMP%` / `%TMP%` của người dùng |
-| Thumbnail & icon cache | ✓ | `%LOCALAPPDATA%\Microsoft\Windows\Explorer` |
-| DirectX / GPU shader cache | ✓ | D3D/NVIDIA/AMD cache đã biết |
-| Báo cáo lỗi Windows | ✓ | Windows Error Reporting trong tài khoản hiện tại |
-| Internet cache hệ thống | ✓ | INetCache của tài khoản hiện tại |
-| Cache trình duyệt |  | Chrome, Edge, Brave, Firefox; **không** đụng cookie/lịch sử/mật khẩu |
-| Windows Temp |  | `C:\Windows\Temp`; có thể cần Administrator |
-| Delivery Optimization |  | cache tải Windows Update; có thể cần Administrator |
+| User temporary files | ✓ | User TEMP only when it is inside Local AppData |
+| Thumbnail & icon cache | ✓ | Explorer thumbnail and icon cache files |
+| DirectX / GPU shaders | ✓ | Known D3D, NVIDIA and AMD shader-cache folders |
+| Windows error reports | ✓ | Current user’s WER archive, queue, and temp folders |
+| Internet cache | ✓ | Current user’s Windows INetCache |
+| Browser cache |  | Chrome, Edge, Brave and Firefox cache folders only |
+| Windows Temp |  | `C:\Windows\Temp`; may require Administrator permission |
+| Delivery Optimization |  | Windows Update download cache; may require Administrator permission |
 
-> **Khuyến nghị:** đóng trình duyệt trước khi dọn browser cache. Tệp đang bị dùng vẫn sẽ được ứng dụng bỏ qua thay vì ép xóa.
+The engine does **not** access Documents, Downloads, Desktop, personal photos, project folders, browser history, cookies, passwords, the Registry, services, or startup settings.
 
-## Chạy từ mã nguồn
+### Important browser note
 
-Yêu cầu: Windows 10/11 và Python 3.10 trở lên.
+Close browsers before selecting browser cache. Cookies, browsing history and saved passwords are never targets; files in use are skipped rather than forced out.
 
-```bat
-python main.py
+## Safety model
+
+- No arbitrary path field exists in the UI or the engine API.
+- Every cleanup target is constructed in code from Windows known folders and fixed cache subpaths.
+- Recursive walking uses Win32 enumeration and refuses to traverse `FILE_ATTRIBUTE_REPARSE_POINT` (junctions and symbolic links).
+- Read-only cache entries may be retried after their readonly attribute is cleared. Locked or protected entries are never forced by ownership changes, process termination, or unsafe shell commands.
+- The destructive action requires scan → explicit confirmation → cleanup.
+
+See [SECURITY.md](SECURITY.md) for the full policy.
+
+## Requirements
+
+- Windows 10 or Windows 11, x64
+- For source builds: CMake 3.24+ and Visual Studio 2022 Build Tools / Visual Studio with **Desktop development with C++**
+
+## Build a distributable package
+
+### Fast route
+
+Run `BUILD_EXE.bat` on Windows. It configures, compiles, installs, and creates:
+
+```text
+dist/
+ ├─ AsxelsCleaner.exe             # thin native loader
+ ├─ AsxelsEngine.dll              # full C++ engine
+ └─ AsxelsCleaner-Windows-x64.zip # distribute this file
 ```
-
-Tùy chọn dòng lệnh (phù hợp automation có kiểm soát):
-
-```bat
-:: Chỉ xem trước thư mục tạm của user (mặc định)
-python main.py --scan
-
-:: Chỉ dọn sau khi xác nhận rõ ràng bằng --yes
-python main.py --clean --yes --categories user_temp,thumbs,shader
-```
-
-Các key hợp lệ: `user_temp`, `thumbs`, `shader`, `reports`, `internet`, `browser`, `windows_temp`, `delivery`.
-
-## Build file `.exe` bằng PyInstaller
-
-### Cách nhanh nhất
-
-Nhấp đúp `BUILD_EXE.bat`, hoặc chạy:
-
-```bat
-BUILD_EXE.bat
-```
-
-Kết quả: `dist\AsxelsCleaner.exe`
 
 ### PowerShell
 
@@ -69,36 +87,27 @@ Set-ExecutionPolicy -Scope Process Bypass
 .\BUILD_EXE.ps1
 ```
 
-File exe dạng **one-file, windowed**. Windows SmartScreen có thể hiện cảnh báo với một exe mới chưa có chữ ký code; đó là hành vi bình thường. Hãy build từ mã nguồn tin cậy hoặc ký code trước khi phát hành thương mại.
+### CMake directly
 
-## GitHub Actions
-
-Workflow `.github/workflows/build-windows.yml` tự build EXE trên `windows-latest` khi:
-
-- chạy thủ công tại tab **Actions**; hoặc
-- push tag theo dạng `v*`, ví dụ `v1.0.0`.
-
-EXE xuất hiện trong **Artifacts** của workflow. Workflow không có quyền ghi repo và không chứa token bí mật.
-
-## Kiến trúc
-
-```text
-main.py                  GUI Tkinter + worker thread + Windows APIs
-BUILD_EXE.bat            Build PyInstaller trên Windows
-BUILD_EXE.ps1            Build PyInstaller bằng PowerShell
-version_info.txt         Version metadata nhúng vào EXE
-.github/workflows/       CI build Windows executable
+```powershell
+cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+cmake --build build --config Release --parallel
+cmake --install build --config Release --prefix dist
 ```
 
-## Lưu ý kỹ thuật về “giải phóng bộ nhớ”
+## CI / download an EXE package
 
-Windows quản lý RAM bằng cache và working set. Nút **Tối ưu bộ nhớ** gọi `EmptyWorkingSet` cho các process người dùng phù hợp, sau đó Windows tự quyết định cách phân phối RAM. Điều này có thể tăng RAM khả dụng nhanh, nhưng một số app có thể cần nạp lại dữ liệu vào RAM sau đó. Đây không phải “RAM booster” thần kỳ và không tắt ứng dụng.
+The workflow at `.github/workflows/build-windows.yml` builds on `windows-latest` and uploads artifact **`AsxelsCleaner-Windows-x64`**. The artifact contains both runtime files and the ZIP. Download it from the relevant GitHub Actions run.
 
-## Bảo mật khi đóng góp
+## Engineering notes
 
-- Không commit PAT, token, khóa API hay file `.env`.
-- Không thêm lệnh xóa mù quáng như `rd /s /q C:\` hoặc lệnh PowerShell xóa đường dẫn do người dùng nhập.
-- Nếu mở rộng danh sách vị trí dọn, hãy bổ sung test và mô tả rõ phạm vi trong README.
+- Engine/UI code: `src/engine.cpp`
+- Exported ABI: `src/engine.hpp`
+- Minimal secure loader: `src/launcher.cpp`
+- Build system: `CMakeLists.txt`
+- Version information for the loader: `src/app.rc`
+
+This application is intentionally conservative. “Cleaning more aggressively” is not considered an improvement if it expands into personal data or makes a system unstable.
 
 ## License
 
