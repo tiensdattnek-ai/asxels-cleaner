@@ -1,0 +1,3 @@
+# Runtime: Python standard library only.
+# Build dependency for the Windows distributable.
+pyinstaller>=6.10,<7

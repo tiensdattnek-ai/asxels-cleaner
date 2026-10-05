@@ -1,23 +1,21 @@
-# Native build output
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# PyInstaller
 build/
 dist/
-out/
-cmake-build-*/
-CMakeCache.txt
-CMakeFiles/
-*.cmake.user
-*.pdb
-*.ilk
-*.exp
-*.lib
+*.spec
 
-# Local settings / secrets / logs
-.env
-*.token
+# Local app files / secrets
 *.log
+*.token
+.env
 
 # IDE / OS
-.vs/
 .vscode/
 .idea/
 .DS_Store

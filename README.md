@@ -1,84 +1,64 @@
-# Asxels Cleaner — Native C++ Engine
+# Asxels Cleaner — Python Edition
 
-A Windows desktop cleaner built as a **native C++20 engine** with a deliberately thin EXE loader. It is designed around one principle: clean known disposable data without becoming a dangerous “delete everything” tool.
+A polished, safety-first Windows cache cleaner written **entirely in Python** and packaged as one standalone `.exe` using PyInstaller.
 
-[![Native build](https://img.shields.io/badge/engine-C%2B%2B20-4E8CFF?style=flat-square)](CMakeLists.txt)
-[![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-3DDBC0?style=flat-square)](#requirements)
-[![License](https://img.shields.io/badge/license-MIT-9CADCB?style=flat-square)](LICENSE)
+![Engine](https://img.shields.io/badge/engine-Python%203.10%2B-4D8CFF?style=flat-square) ![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-42D8C0?style=flat-square) ![License](https://img.shields.io/badge/license-MIT-9DAECB?style=flat-square)
 
-## Runtime architecture
+## What changed in v3
 
-```text
-AsxelsCleaner.exe     Tiny native bootstrapper / loader only
-        │  LoadLibrary (absolute sibling path)
-        ▼
-AsxelsEngine.dll      Native C++20 engine
-        ├─ custom Win32 / GDI desktop UI
-        ├─ fixed-scope cache discovery and scanning
-        ├─ safe recursive cleanup engine
-        ├─ process working-set optimization
-        ├─ local activity logs
-        └─ background workers + UI event bridge
-```
-
-The launcher finds `AsxelsEngine.dll` in **its own folder** and invokes the single exported engine entry point. This means the EXE stays thin; all functionality and logic are executed by C++ in the engine DLL. Distribute the two files together, preferably through the supplied ZIP.
+- **100% Python source:** the C++ loader/DLL architecture was removed.
+- **One-file distribution:** `AsxelsCleaner.exe` is created by PyInstaller and does not require a C++ DLL or a preinstalled Python runtime.
+- **Improved engine boundaries:** every cleanup target carries its own fixed root boundary; an out-of-bound target is refused before scan or deletion.
+- **Cancelable background tasks:** scanning, cleanup, and memory trim run off the UI thread and can be stopped between items.
+- **Optional Recycle Bin cleanup:** opt-in only, unselected by default, and always included in the final irreversible-action warning.
+- **More transparent results:** actual removed bytes are counted only after a successful deletion; skipped/blocked files are shown separately.
 
 ## Features
 
-- **Native C++20 only:** no Python runtime, no PyInstaller, no Electron, and no third-party runtime dependency.
-- **Premium dark Windows UI:** custom-rendered native interface, high-DPI aware, responsive background workers, memory meter, keyboard shortcuts (`F5` preview, `Enter` clean, `Esc` close while idle).
-- **Preview before delete:** scanning runs immediately before confirmation, so the shown amount is current.
-- **Transparent reporting:** actual removed bytes/count are recorded only when a deletion succeeds; locked/protected items are reported as skipped.
-- **Safe memory action:** calls Windows `EmptyWorkingSet` on accessible user processes while excluding core Windows processes. It does not kill apps or claim to create extra physical RAM.
-- **Local logs:** `%LOCALAPPDATA%\AsxelsCleaner\logs\activity.log`.
-- **GitHub Actions:** native x64 compilation and ZIP artifact on every push to `main`, tag `v*`, or manual dispatch.
+- Modern dark Windows desktop UI using Tkinter/ttk — no web browser, Electron, telemetry, or adware.
+- Scan before cleanup, then scan again immediately before the destructive confirmation.
+- User Temp, thumbnail/icon cache, DirectX/GPU shader cache, Windows Error Reporting, and current-user Internet cache enabled by default.
+- Optional browser cache, Windows Temp, Delivery Optimization, and Recycle Bin cleanup.
+- Browser cleanup targets cache folders only: **no** passwords, cookies, or browsing history.
+- Safe link handling: symbolic links and Windows junction/reparse points are never traversed.
+- Files locked by an app or protected by Windows are skipped — no ownership takeover, forced process termination, or blind shell-delete commands.
+- Local-only history and activity log: `%LOCALAPPDATA%\AsxelsCleaner\logs\activity.log`.
+- Windows memory telemetry plus conservative `EmptyWorkingSet` optimization for accessible non-critical user processes.
+- Keyboard shortcuts: `F5` preview, `Enter` safe cleanup flow, `Esc` request cancellation.
 
 ## Cleanup scope
 
-| Area | Default | Exact intent |
+| Category | Default | Scope |
 |---|:---:|---|
-| User temporary files | ✓ | User TEMP only when it is inside Local AppData |
-| Thumbnail & icon cache | ✓ | Explorer thumbnail and icon cache files |
-| DirectX / GPU shaders | ✓ | Known D3D, NVIDIA and AMD shader-cache folders |
-| Windows error reports | ✓ | Current user’s WER archive, queue, and temp folders |
-| Internet cache | ✓ | Current user’s Windows INetCache |
-| Browser cache |  | Chrome, Edge, Brave and Firefox cache folders only |
-| Windows Temp |  | `C:\Windows\Temp`; may require Administrator permission |
-| Delivery Optimization |  | Windows Update download cache; may require Administrator permission |
+| User temporary files | ✓ | User TEMP/TMP only when inside Local AppData |
+| Thumbnail & icon cache | ✓ | Explorer cache files only |
+| DirectX / GPU shader cache | ✓ | Known D3D, NVIDIA, and AMD cache locations |
+| Windows error reports | ✓ | Current user WER archive, queue, and temp folders |
+| Internet cache | ✓ | Current-user Windows INetCache |
+| Browser cache |  | Chrome, Edge, Brave, and Firefox cache folders only |
+| Windows Temp |  | `C:\Windows\Temp`; may need Administrator permission |
+| Delivery Optimization |  | Windows Update download cache; may be regenerated |
+| Recycle Bin |  | Entire Windows Recycle Bin; irreversible after confirmation |
 
-The engine does **not** access Documents, Downloads, Desktop, personal photos, project folders, browser history, cookies, passwords, the Registry, services, or startup settings.
+The app does **not** target Documents, Downloads, Desktop, personal files, project folders, the Registry, startup settings, Windows services, cookies, passwords, or browser history.
 
-### Important browser note
-
-Close browsers before selecting browser cache. Cookies, browsing history and saved passwords are never targets; files in use are skipped rather than forced out.
-
-## Safety model
-
-- No arbitrary path field exists in the UI or the engine API.
-- Every cleanup target is constructed in code from Windows known folders and fixed cache subpaths.
-- Recursive walking uses Win32 enumeration and refuses to traverse `FILE_ATTRIBUTE_REPARSE_POINT` (junctions and symbolic links).
-- Read-only cache entries may be retried after their readonly attribute is cleared. Locked or protected entries are never forced by ownership changes, process termination, or unsafe shell commands.
-- The destructive action requires scan → explicit confirmation → cleanup.
-
-See [SECURITY.md](SECURITY.md) for the full policy.
-
-## Requirements
-
-- Windows 10 or Windows 11, x64
-- For source builds: CMake 3.24+ and Visual Studio 2022 Build Tools / Visual Studio with **Desktop development with C++**
-
-## Build a distributable package
+## Build the EXE with PyInstaller
 
 ### Fast route
 
-Run `BUILD_EXE.bat` on Windows. It configures, compiles, installs, and creates:
+On a Windows machine with Python 3.10 or newer, run:
+
+```bat
+BUILD_EXE.bat
+```
+
+Output:
 
 ```text
-dist/
- ├─ AsxelsCleaner.exe             # thin native loader
- ├─ AsxelsEngine.dll              # full C++ engine
- └─ AsxelsCleaner-Windows-x64.zip # distribute this file
+dist\AsxelsCleaner.exe
 ```
+
+The result is a **single, windowed EXE** with Python and the app code embedded by PyInstaller.
 
 ### PowerShell
 
@@ -87,27 +67,52 @@ Set-ExecutionPolicy -Scope Process Bypass
 .\BUILD_EXE.ps1
 ```
 
-### CMake directly
+### Manual build
 
-```powershell
-cmake -S . -B build -G "Visual Studio 17 2022" -A x64
-cmake --build build --config Release --parallel
-cmake --install build --config Release --prefix dist
+```bat
+python -m pip install -r requirements.txt
+python -m PyInstaller --noconfirm --clean --windowed --onefile --name AsxelsCleaner --version-file version_info.txt --collect-all tkinter main.py
 ```
 
-## CI / download an EXE package
+A new unsigned executable may trigger Microsoft SmartScreen. Build from this reviewed source or sign the EXE before commercial release.
 
-The workflow at `.github/workflows/build-windows.yml` builds on `windows-latest` and uploads artifact **`AsxelsCleaner-Windows-x64`**. The artifact contains both runtime files and the ZIP. Download it from the relevant GitHub Actions run.
+## GitHub Actions
 
-## Engineering notes
+`.github/workflows/build-windows.yml` runs safety tests and packages `AsxelsCleaner.exe` on Windows x64 whenever `main` is pushed, a `v*` tag is pushed, or the workflow is started manually. Download artifact **`AsxelsCleaner-Windows-x64`** from the completed run.
 
-- Engine/UI code: `src/engine.cpp`
-- Exported ABI: `src/engine.hpp`
-- Minimal secure loader: `src/launcher.cpp`
-- Build system: `CMakeLists.txt`
-- Version information for the loader: `src/app.rc`
+## Optional command line usage
 
-This application is intentionally conservative. “Cleaning more aggressively” is not considered an improvement if it expands into personal data or makes a system unstable.
+The GUI is the recommended mode. A narrowly scoped CLI exists for controlled automation:
+
+```bat
+:: Preview only the per-user temporary cache
+python main.py --scan
+
+:: Explicitly clean two safe categories
+python main.py --clean --yes --categories user_temp,thumbnails
+```
+
+Valid keys: `user_temp`, `thumbnails`, `shaders`, `reports`, `internet`, `browser`, `windows_temp`, `delivery`, `recycle`.
+
+`--clean` refuses to execute unless `--yes` is also present.
+
+## Project layout
+
+```text
+asxels_cleaner/
+  engine.py      fixed-scope scan/delete engine
+  memory.py      Windows memory telemetry and working-set trim
+  storage.py     local-only log and small history summary
+  ui.py          responsive Tkinter desktop UI
+main.py          GUI / explicit CLI entry point
+BUILD_EXE.*      PyInstaller packaging scripts
+requirements.txt build-only dependency declaration
+tests/           portable safety and accounting tests
+```
+
+## Safety policy
+
+See [SECURITY.md](SECURITY.md). More aggressive deletion is not treated as an improvement if it expands into personal data or destabilizes Windows.
 
 ## License
 

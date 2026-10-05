@@ -1,16 +1,18 @@
-# Safety and security policy
+# Safety policy
 
-Asxels Cleaner is deliberately a **bounded cleaner**, not a generic file deletion utility.
+Asxels Cleaner is intentionally a bounded cleanup tool, not a generic file-deletion application.
 
-## Non-negotiable engine guarantees
+## Engine guarantees
 
-1. The GUI has no input for an arbitrary filesystem path.
-2. Cleanup locations are fixed in `src/engine.cpp` and limited to documented caches and temporary-file stores.
-3. Directory junctions and symbolic links are never traversed. A link is handled only as a link.
-4. Items locked by an application, protected by Windows, or requiring unavailable permission are skipped and reported; the engine does not take ownership, stop services, kill processes, or use shell-wide recursive-delete commands.
-5. The final cleanup action always performs a new scan and requires an explicit confirmation dialog.
-6. Memory optimization invokes `EmptyWorkingSet` only for accessible, non-critical named processes. It never terminates processes and cannot create physical RAM.
+1. There is no arbitrary path field in the UI or CLI.
+2. Every target is created from fixed, documented Windows cache paths in `asxels_cleaner/engine.py`.
+3. The recursive scanner/deleter detects symbolic links and Windows reparse points (junctions) and never descends through them.
+4. A `CONTENTS` target preserves its container directory and deletes only children.
+5. Files blocked by Windows, another application, or unavailable permissions are skipped and included in the result; no ownership takeover, service stop, process kill, or blind shell-delete command is used.
+6. Cleaning always uses scan → explicit confirmation → cleanup. CLI cleaning additionally requires `--yes`.
+7. Recycle Bin is opt-in, unselected by default, and clearly marked irreversible.
+8. Memory optimization only calls Windows `EmptyWorkingSet` on accessible named, non-critical processes; it never terminates an app.
 
-## Reporting an issue
+## Reporting a safety issue
 
-Do not publish credentials or personal paths in an issue. Describe the category, Windows version, expected result, actual result, and a redacted log excerpt when possible.
+Do not include credentials, unredacted user paths, or personal files in a report. State the selected category, Windows version, expected result, actual result, and a redacted local-log excerpt if available.

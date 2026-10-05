@@ -1,48 +1,47 @@
-name: Build native Windows package
+name: Build Python Windows EXE
 
 on:
   workflow_dispatch:
   push:
-    tags:
-      - 'v*'
-    branches:
-      - main
+    branches: [main]
+    tags: ['v*']
 
 permissions:
   contents: read
 
 jobs:
-  build:
-    name: C++20 / Windows x64
-    # Pin the image because the v2 build script intentionally targets the
-    # Visual Studio 2022 C++ toolchain, rather than tracking future images.
+  test-and-build:
+    name: Python / Windows x64
     runs-on: windows-2022
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Configure (Visual Studio 2022, x64)
-        run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
 
-      - name: Build Release
-        run: cmake --build build --config Release --parallel
+      - name: Install build dependency
+        run: python -m pip install -r requirements.txt
 
-      - name: Install runtime pair
-        run: cmake --install build --config Release --prefix dist
+      - name: Run safety tests
+        run: python -m unittest discover -s tests -v
 
-      - name: Validate distributable files
+      - name: Build one-file Windows application
+        run: >-
+          python -m PyInstaller --noconfirm --clean --windowed --onefile
+          --name AsxelsCleaner --version-file version_info.txt --collect-all tkinter main.py
+
+      - name: Validate executable
         shell: pwsh
         run: |
-          $required = 'dist/AsxelsCleaner.exe', 'dist/AsxelsEngine.dll'
-          $required | ForEach-Object {
-            if (!(Test-Path $_)) { throw "Missing required runtime file: $_" }
-            Write-Host "OK  $_  $((Get-Item $_).Length) bytes"
-          }
-          Compress-Archive -Path $required -DestinationPath 'dist/AsxelsCleaner-Windows-x64.zip' -Force
+          if (!(Test-Path 'dist/AsxelsCleaner.exe')) { throw 'AsxelsCleaner.exe was not created.' }
+          Write-Host "OK  dist/AsxelsCleaner.exe  $((Get-Item 'dist/AsxelsCleaner.exe').Length) bytes"
 
-      - name: Upload Windows x64 package
+      - name: Upload Windows EXE
         uses: actions/upload-artifact@v4
         with:
           name: AsxelsCleaner-Windows-x64
-          path: dist/
+          path: dist/AsxelsCleaner.exe
           if-no-files-found: error

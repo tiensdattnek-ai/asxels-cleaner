@@ -2,34 +2,35 @@
 setlocal EnableExtensions
 cd /d "%~dp0"
 
-echo ================================================
-echo  Asxels Cleaner v2 - Native C++ Windows Builder
-echo ================================================
+echo ===============================================
+echo  Asxels Cleaner v3 - Python EXE Builder
+echo ===============================================
 
-where cmake >nul 2>nul
+where python >nul 2>nul
 if errorlevel 1 (
-  echo [ERROR] Khong tim thay CMake. Cai Visual Studio 2022 Build Tools voi Desktop development with C++.
-  echo https://visualstudio.microsoft.com/downloads/
+  echo [ERROR] Khong tim thay Python trong PATH.
+  echo Cai Python 3.10+ tai https://www.python.org/downloads/windows/
   pause
   exit /b 1
 )
 
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+if errorlevel 1 goto :failed
+
 if exist build rmdir /s /q build
 if exist dist rmdir /s /q dist
 
-cmake -S . -B build -G "Visual Studio 17 2022" -A x64
-if errorlevel 1 goto :failed
-cmake --build build --config Release --parallel
-if errorlevel 1 goto :failed
-cmake --install build --config Release --prefix dist
+python -m PyInstaller --noconfirm --clean --windowed --onefile ^
+  --name "AsxelsCleaner" ^
+  --version-file "version_info.txt" ^
+  --collect-all tkinter ^
+  main.py
 if errorlevel 1 goto :failed
 
-powershell -NoProfile -ExecutionPolicy Bypass -Command "Compress-Archive -Path 'dist\AsxelsCleaner.exe','dist\AsxelsEngine.dll' -DestinationPath 'dist\AsxelsCleaner-Windows-x64.zip' -Force"
 echo.
-echo [OK] Da tao:
-echo      dist\AsxelsCleaner.exe   ^(thin native loader^)
-echo      dist\AsxelsEngine.dll    ^(C++ cleanup and UI engine^)
-echo      dist\AsxelsCleaner-Windows-x64.zip
+echo [OK] Da tao: dist\AsxelsCleaner.exe
+echo EXE nay la app Python da dong goi day du bang PyInstaller, khong can C++ DLL hay Python cai san.
 pause
 exit /b 0
 
