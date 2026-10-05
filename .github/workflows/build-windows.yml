@@ -14,7 +14,9 @@ permissions:
 jobs:
   build:
     name: C++20 / Windows x64
-    runs-on: windows-latest
+    # Pin the image because the v2 build script intentionally targets the
+    # Visual Studio 2022 C++ toolchain, rather than tracking future images.
+    runs-on: windows-2022
     steps:
       - name: Checkout
         uses: actions/checkout@v4
